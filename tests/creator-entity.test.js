@@ -8,7 +8,7 @@ const html = fs.readFileSync(path.join(__dirname, "..", "public", "national-tool
 test("emitted national aurora graph names its canonical author and publisher", () => {
   const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   assert.ok(jsonLd, "JSON-LD script is present");
-  const graph = JSON.parse(jsonLd[1]).["@graph"];
+  const graph = JSON.parse(jsonLd[1])["@graph"];
   const personId = "https://chrisizworski.com/#person";
   const person = graph.find((entity) => entity["@type"] === "Person" && entity["@id"] === personId);
   const page = graph.find((entity) => entity["@id"] === "https://chrisizworski.com/national-tools/aurora/#page");
