@@ -125,6 +125,18 @@ function reasons({ signal, peakKp, bestWindow, moon }) {
   return out.slice(0, 4);
 }
 
+const MAX_KP_OBS_AGE_MS = 6 * 3600000;
+const MAX_OVATION_AGE_MS = 2 * 3600000;
+const MAX_NWS_SKY_AGE_MS = 12 * 3600000;
+function sourceTimeFresh(value, maxAgeMs, now = Date.now(), futureToleranceMs = 600000) {
+  const stamp = typeof value === "number" ? value : Date.parse(value);
+  return Number.isFinite(stamp) && stamp >= now - maxAgeMs && stamp <= now + futureToleranceMs;
+}
+function ovationFresh(value, now = Date.now()) {
+  return Boolean(value && sourceTimeFresh(value.observation_time, MAX_OVATION_AGE_MS, now) &&
+    sourceTimeFresh(value.forecast_time, MAX_OVATION_AGE_MS, now, 2 * 3600000));
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
@@ -148,8 +160,10 @@ module.exports = async function handler(req, res) {
   const forecast = kpF.status === "fulfilled"
     ? parseKpForecast(kpF.value)
     : { peak_24h: null, peak_24h_at: null, periods: [] };
-  const current = kpC.status === "fulfilled" ? parseCurrentKp(kpC.value) : null;
-  const parsedOv = ov.status === "fulfilled" ? parseOvation(ov.value) : null;
+  const currentRaw = kpC.status === "fulfilled" ? parseCurrentKp(kpC.value) : null;
+  const current = sourceTimeFresh(currentRaw?.observed_at, MAX_KP_OBS_AGE_MS) ? currentRaw : null;
+  const ovationRaw = ov.status === "fulfilled" ? parseOvation(ov.value) : null;
+  const parsedOv = ovationFresh(ovationRaw) ? ovationRaw : null;
   const ovationValue = parsedOv ? parsedOv.valueAt(lat, lon) : null;
 
   let sky = { updated_at: null, periods: [] };
@@ -157,9 +171,11 @@ module.exports = async function handler(req, res) {
   let timeZone = "UTC";
   if (nws.status === "fulfilled") {
     sky = parseSkyCover(nws.value.grid);
+    if (!sourceTimeFresh(sky.updated_at, MAX_NWS_SKY_AGE_MS)) sky = { updated_at: sky.updated_at, periods: [] };
     nights = nightCandidates(nws.value.hourly, sky);
     timeZone = nws.value.points?.properties?.timeZone || "UTC";
   }
+  const skyFresh = sourceTimeFresh(sky.updated_at, MAX_NWS_SKY_AGE_MS);
   const bestWindow = bestCloudWindow(nights, 3);
 
   let moon = null;
@@ -181,7 +197,8 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({
     retrieved_at: retrievedAt,
-    degraded: first.some((x) => x.status === "rejected"),
+    degraded: first.some((x) => x.status === "rejected") || !current || !parsedOv || !skyFresh,
+    source_freshness: { kp_observed_fresh: Boolean(current), ovation_fresh: Boolean(parsedOv), nws_sky_fresh: skyFresh },
     location: {
       latitude: lat,
       longitude: lon,
@@ -220,7 +237,7 @@ module.exports = async function handler(req, res) {
         url: "https://www.swpc.noaa.gov/products/aurora-30-minute-forecast",
         updatedAt: parsedOv?.forecast_time ? new Date(parsedOv.forecast_time).toISOString() : null,
         staleAfterMinutes: 120,
-        available: ov.status === "fulfilled",
+        available: Boolean(parsedOv),
         status: "short-term modeled aurora signal",
       }),
       sourceMeta({
@@ -235,8 +252,8 @@ module.exports = async function handler(req, res) {
         name: "National Weather Service forecast API",
         url: "https://www.weather.gov/documentation/services-web-API",
         updatedAt: sky.updated_at,
-        staleAfterMinutes: 360,
-        available: nws.status === "fulfilled",
+        staleAfterMinutes: 720,
+        available: skyFresh,
         status: "local cloud and darkness context",
       }),
       sourceMeta({
@@ -250,4 +267,4 @@ module.exports = async function handler(req, res) {
   });
 };
 
-module.exports._test = { moonUrl, nightCandidates, reasons, verdict };
+module.exports._test = { moonUrl, nightCandidates, reasons, verdict, sourceTimeFresh, ovationFresh };
