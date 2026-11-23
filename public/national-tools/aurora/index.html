@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Northern Lights Forecast Tonight | Chris Izworski</title>
+<title>Northern Lights Forecast Tonight by City or ZIP | Chris Izworski</title>
 <meta name="description" content="Check northern lights viewing potential tonight using NOAA aurora signals, Kp, darkness, moon and local NWS cloud cover for your U.S. location.">
 <link rel="canonical" href="https://chrisizworski.com/national-tools/aurora/"><meta name="robots" content="index,follow,max-image-preview:large">
 <link rel="stylesheet" href="/assets/national-tools.css?v=20260901-placebar1">
@@ -346,17 +346,17 @@ body[data-editorial-tool-ui] :focus-visible{outline:3px solid var(--editorial-gr
 }
 @media(prefers-reduced-motion:reduce){body[data-editorial-tool-ui]{scroll-behavior:auto!important}}
 </style>
-<meta property="og:title" content="Northern Lights Forecast Tonight | Chris Izworski">
+<meta property="og:title" content="Northern Lights Forecast Tonight by City or ZIP | Chris Izworski">
 <meta property="og:description" content="Check northern lights viewing potential tonight using NOAA aurora signals, Kp, darkness, moon and local NWS cloud cover for your U.S. location.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://chrisizworski.com/national-tools/aurora/">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Northern Lights Forecast Tonight | Chris Izworski">
+<meta name="twitter:title" content="Northern Lights Forecast Tonight by City or ZIP | Chris Izworski">
 <meta name="twitter:description" content="Check northern lights viewing potential tonight using NOAA aurora signals, Kp, darkness, moon and local NWS cloud cover for your U.S. location.">
 </head><body data-editorial-tool-ui="2026-09">
 <header class="site-head"><div class="wrap head-in"><a class="brand" href="/">Chris Izworski</a><nav class="nav" aria-label="Primary"><a href="/">Home</a><a href="/tools/">Michigan Tools</a><a href="/national-tools/" aria-current="page">U.S. Outdoor Tools</a></nav></div></header>
 <main>
-<section class="hero"><div class="wrap"><div class="breadcrumb"><a href="/">Home</a> &rsaquo; <a href="/national-tools/">U.S. Outdoor Tools</a> &rsaquo; Can I See the Northern Lights Tonight?</div><div class="eyebrow">Aurora Tonight · NOAA + NWS + USNO</div><h1>Can I See the Northern Lights Tonight?</h1><p class="lede">A local answer built from the aurora signal, darkness, clouds and moonlight—not a Kp number pretending to be a visibility forecast.</p></div></section>
+<section class="hero"><div class="wrap"><div class="breadcrumb"><a href="/">Home</a> &rsaquo; <a href="/national-tools/">U.S. Outdoor Tools</a> &rsaquo; Can I See the Northern Lights Tonight?</div><div class="eyebrow">Aurora Tonight · NOAA + NWS + USNO</div><h1>Can I See the Northern Lights Tonight?</h1><p class="lede">Enter your city or ZIP to see when it gets dark, whether clouds leave an opening, and what NOAA’s latest aurora map shows near you.</p></div></section>
 
 <section class="section"><div class="wrap">
 <div class="tool-nav"><a href="/national-tools/">All U.S. tools</a><a href="/national-tools/rivers/">Rivers</a><a href="/national-tools/frost/">Frost</a><a href="/national-tools/fall-color/">Fall color</a></div>
@@ -366,6 +366,7 @@ body[data-editorial-tool-ui] :focus-visible{outline:3px solid var(--editorial-gr
 <div id="result" class="result" hidden>
   <div class="result-head"><span id="level" class="pill"></span><span id="confidence" class="pill"></span></div>
   <div id="answer" class="answer"></div><p id="detail"></p>
+  <aside id="state-guide" class="handoff" hidden><a></a><p></p></aside>
   <div id="reasons" class="action-grid"></div>
   <div class="aurora-oval-panel">
     <div class="aurora-oval-copy"><span class="tool-kicker">NOAA 30–90 minute nowcast</span><h2>Where the auroral oval is now</h2><p>The same NOAA auroral-oval view used on the Michigan tool, plus the modeled OVATION signal at your searched location.</p>
@@ -396,14 +397,26 @@ body[data-editorial-tool-ui] :focus-visible{outline:3px solid var(--editorial-gr
 <div class="source-box"><h2>What can still ruin a good-looking result</h2><p>Light pollution, a blocked northern horizon, haze, moon glare and a fast-changing aurora can all matter. OVATION is not a percent chance of seeing aurora and Kp is not a local visibility forecast.</p><p><a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast">NOAA OVATION</a> · <a href="https://www.weather.gov/documentation/services-web-API">NWS API</a></p></div>
 </div></section>
 
+<script src="/national-tools/aurora/state-guide.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded",function(){
  const N=window.NationalTools,form=document.getElementById("loc");
  function fmtZone(value,tz,options){if(typeof N.fmtInZone==="function")return N.fmtInZone(value,tz,options);if(!value)return "Unknown";const d=new Date(value);if(Number.isNaN(d.getTime()))return String(value);try{return d.toLocaleString([],{...(options||{}),timeZone:tz||undefined})}catch(_){return d.toLocaleString([],options||{})}}
  function timeRange(w,tz){if(!w)return "Unavailable";return fmtZone(w.start_time,tz,{hour:"numeric"})+"–"+fmtZone(w.end_time,tz,{hour:"numeric"})}
  function refreshOval(){const img=document.getElementById("national-oval-img");if(img)img.src="https://services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg?t="+Math.floor(Date.now()/300000)}
+ let generation=0;
+ function resetResult(){
+  generation++;
+  document.getElementById("result").hidden=true;
+  document.getElementById("mi").hidden=true;
+  window.AuroraStateGuide?.reset();
+ }
+ form.addEventListener("submit",resetResult,true);
+ form.querySelector("[data-use-location]").addEventListener("click",resetResult,true);
  async function run(loc){
-  const r=await fetch("/api/national-aurora?lat="+loc.latitude+"&lon="+loc.longitude),d=await r.json();if(!r.ok)throw new Error(d.error||"Aurora data unavailable");
+  resetResult();
+  const current=generation;
+  const r=await fetch("/api/national-aurora?lat="+loc.latitude+"&lon="+loc.longitude),d=await r.json();if(current!==generation)return;if(!r.ok)throw new Error(d.error||"Aurora data unavailable");
   document.getElementById("result").hidden=false;
   document.getElementById("level").textContent=d.verdict.level;
   document.getElementById("confidence").textContent="confidence "+d.verdict.confidence;
@@ -422,7 +435,9 @@ document.addEventListener("DOMContentLoaded",function(){
   document.getElementById("signal-time").textContent=d.local_signal?.ovation_forecast_at?fmtZone(d.local_signal.ovation_forecast_at,d.location?.timeZone||loc.timeZone,{hour:"numeric",minute:"2-digit"}):"Unknown";
   const stale=(d.sources||[]).filter(s=>s.stale===true).map(s=>s.source_name);
   document.getElementById("updated").textContent="Retrieved "+N.fmtDate(d.retrieved_at)+(d.degraded?" · one or more upstream feeds are degraded":"")+(stale.length?" · stale: "+stale.join(", "):"");
-  document.getElementById("mi").hidden=loc.stateCode!=="MI";
+  const state=loc.stateCode||d.location?.nearbyState;
+  document.getElementById("mi").hidden=state!=="MI";
+  window.AuroraStateGuide?.show(state,loc.latitude,loc.longitude);
  }
  refreshOval();setInterval(refreshOval,5*60*1000);
  N.bind(form,run);const q=new URLSearchParams(location.search).get("q");if(q){form.querySelector("input").value=q;form.requestSubmit();}

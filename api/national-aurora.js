@@ -202,6 +202,7 @@ module.exports = async function handler(req, res) {
     location: {
       latitude: lat,
       longitude: lon,
+      nearbyState: nws.status === "fulfilled" ? nws.value.points?.properties?.relativeLocation?.properties?.state || null : null,
       timeZone,
     },
     verdict: resultVerdict,
