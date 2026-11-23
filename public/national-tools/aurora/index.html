@@ -267,6 +267,41 @@ body[data-editorial-tool-ui] .aurora-oval-panel{
   background:#fff!important;
   box-shadow:none!important;
 }
+/* This panel uses the editorial paper background. The shared map styles were designed for a dark background. */
+body[data-editorial-tool-ui] .aurora-oval-copy h2{
+  margin:0 0 10px;
+  color:var(--editorial-night)!important;
+  font-size:1.5rem;
+  font-weight:700!important;
+}
+body[data-editorial-tool-ui] .aurora-oval-copy p{
+  margin:0 0 12px;
+  color:var(--editorial-ink);
+  font:1.05rem/1.55 Georgia,"Times New Roman",serif;
+}
+body[data-editorial-tool-ui] .oval-local-signal{
+  display:block;
+  margin:14px 0;
+  padding:12px 14px;
+  border:0;
+  border-left:3px solid var(--editorial-green);
+  border-radius:0;
+  background:var(--editorial-green-soft);
+}
+body[data-editorial-tool-ui] .oval-local-signal span{
+  display:block;
+  color:var(--editorial-ink);
+  font:600 1rem/1.4 Arial,sans-serif;
+}
+body[data-editorial-tool-ui] .oval-local-signal strong{
+  display:block;
+  margin:4px 0;
+  color:var(--editorial-night);
+  font:700 1.35rem/1.3 Arial,sans-serif;
+  white-space:normal;
+}
+body[data-editorial-tool-ui] .oval-local-signal p{margin:0}
+body[data-editorial-tool-ui] .aurora-oval-copy a{color:var(--editorial-green-dark);text-decoration:underline}
 body[data-editorial-tool-ui] .grid{
   display:grid!important;
   grid-template-columns:repeat(2,minmax(0,1fr))!important;
@@ -369,10 +404,15 @@ body[data-editorial-tool-ui] :focus-visible{outline:3px solid var(--editorial-gr
   <aside id="state-guide" class="handoff" hidden><a></a><p></p></aside>
   <div id="reasons" class="action-grid"></div>
   <div class="aurora-oval-panel">
-    <div class="aurora-oval-copy"><span class="tool-kicker">NOAA 30–90 minute nowcast</span><h2>Where the auroral oval is now</h2><p>The same NOAA auroral-oval view used on the Michigan tool, plus the modeled OVATION signal at your searched location.</p>
-      <div class="oval-local-signal"><strong id="oval-local-value">—</strong><span>local OVATION grid signal · 0–100 modeled intensity, not a sighting probability</span></div>
-      <p class="small">Brighter areas on NOAA’s map indicate a stronger modeled aurora signal. Clouds, darkness, light pollution and horizon still determine whether you can actually see it.</p>
-      <a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast" target="_blank" rel="noopener">Open the official NOAA aurora forecast ↗</a>
+    <div class="aurora-oval-copy">
+      <h2>Where to look for the northern lights</h2>
+      <p>Find your region on the map. The green band shows where NOAA expects aurora overhead in the next 30 to 90 minutes. Red marks the strongest activity.</p>
+      <div class="oval-local-signal">
+        <span id="oval-local-place">Aurora overhead near you</span>
+        <strong id="oval-local-value">Reading unavailable</strong>
+        <p id="oval-local-note">Check the time on the map for the latest forecast.</p>
+      </div>
+      <a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast" target="_blank" rel="noopener">View the full NOAA aurora map ↗</a>
     </div>
     <div class="aurora-oval-image"><img id="national-oval-img" alt="NOAA northern hemisphere auroral oval forecast" loading="lazy"></div>
   </div>
@@ -429,7 +469,14 @@ document.addEventListener("DOMContentLoaded",function(){
   document.getElementById("moon").textContent=d.moon?.illumination_percent==null?"Unknown":Math.round(d.moon.illumination_percent)+"%";
   const localOvation=d.local_signal?.ovation_value;
   document.getElementById("ovation").textContent=localOvation==null?"Unavailable":Math.round(localOvation);
-  document.getElementById("oval-local-value").textContent=localOvation==null?"Unavailable":Math.round(localOvation)+"/100";
+  document.getElementById("oval-local-place").textContent="Aurora overhead near "+N.label(loc);
+  const hasReading=Number.isFinite(localOvation);
+  const strength=localOvation>0 && localOvation<1?"Less than 1":Math.round(localOvation);
+  document.getElementById("oval-local-value").textContent=hasReading?strength+" out of 100":"Reading unavailable";
+  const note=document.getElementById("oval-local-note");
+  if(!hasReading) note.textContent="Use the map for a regional view and check its forecast time.";
+  else if(localOvation===0) note.textContent="NOAA expects no aurora directly overhead here. If the band is just north of you, you may still see a glow low on a clear, dark northern horizon.";
+  else note.textContent="Higher numbers mean stronger aurora overhead. Once it’s dark, look for a clear patch of sky toward the colored band.";
   refreshOval();
   document.getElementById("kp").textContent=d.geomagnetic?.peak_24h_kp==null?"Unknown":d.geomagnetic.peak_24h_kp;
   document.getElementById("signal-time").textContent=d.local_signal?.ovation_forecast_at?fmtZone(d.local_signal.ovation_forecast_at,d.location?.timeZone||loc.timeZone,{hour:"numeric",minute:"2-digit"}):"Unknown";
