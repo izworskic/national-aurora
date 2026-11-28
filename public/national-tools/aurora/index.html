@@ -444,6 +444,17 @@ document.addEventListener("DOMContentLoaded",function(){
  function fmtZone(value,tz,options){if(typeof N.fmtInZone==="function")return N.fmtInZone(value,tz,options);if(!value)return "Unknown";const d=new Date(value);if(Number.isNaN(d.getTime()))return String(value);try{return d.toLocaleString([],{...(options||{}),timeZone:tz||undefined})}catch(_){return d.toLocaleString([],options||{})}}
  function timeRange(w,tz){if(!w)return "Unavailable";return fmtZone(w.start_time,tz,{hour:"numeric"})+"–"+fmtZone(w.end_time,tz,{hour:"numeric"})}
  function refreshOval(){const img=document.getElementById("national-oval-img");if(img)img.src="https://services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg?t="+Math.floor(Date.now()/300000)}
+ // The server cache allows 5 minutes fresh plus 15 minutes stale revalidation.
+ function auroraPacketCurrent(d,now=Date.now()){
+  const stamp=Date.parse(d?.retrieved_at||"");
+  if(!Number.isFinite(stamp)||stamp>now+60000||now-stamp>20*60000)return false;
+  const signal=d?.local_signal;
+  if(signal?.ovation_value!=null){
+   const issued=Date.parse(signal.ovation_forecast_at||"");
+   if(!Number.isFinite(issued)||issued<now-2*3600000||issued>now+2*3600000)return false;
+  }
+  return true;
+ }
  let generation=0;
  function resetResult(){
   generation++;
@@ -457,6 +468,7 @@ document.addEventListener("DOMContentLoaded",function(){
   resetResult();
   const current=generation;
   const r=await fetch("/api/national-aurora?lat="+loc.latitude+"&lon="+loc.longitude),d=await r.json();if(current!==generation)return;if(!r.ok)throw new Error(d.error||"Aurora data unavailable");
+  if(!auroraPacketCurrent(d))throw new Error("Aurora data unavailable: the forecast packet is expired or cannot be verified. Check NOAA for the latest signal.");
   document.getElementById("result").hidden=false;
   document.getElementById("level").textContent=d.verdict.level;
   document.getElementById("confidence").textContent="confidence "+d.verdict.confidence;
